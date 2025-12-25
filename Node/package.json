@@ -1,0 +1,24 @@
+{
+  "name": "challenge-lhu-backend",
+  "version": "1.0.0",
+  "description": "Backend Challenge LHU - Node.js Learning",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "event-loop": "node async/event-loop.js",
+    "promise": "node async/promise-demo.js",
+    "async": "node async/async-await-demo.js",
+    "commonjs": "node modules/commonjs-demo.js",
+    "esmodule": "node modules/esmodule-demo.mjs",
+    "builtin": "node modules/builtin-modules.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "nodejs",
+    "backend",
+    "learning"
+  ],
+  "author": "Lê Chí Tường",
+  "license": "ISC",
+  "type": "commonjs"
+}
