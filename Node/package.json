@@ -20,5 +20,8 @@
   ],
   "author": "Lê Chí Tường",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
 }
