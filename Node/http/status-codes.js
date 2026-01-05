@@ -1,5 +1,3 @@
-// TASK 4: HTTP Status Codes Demo
-
 const http = require('http');
 
 const PORT = 3000;
@@ -17,7 +15,7 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     console.log(`[${req.method}] ${pathname}`);
 
-    // ========== ROUTING + STATUS CODES ==========
+    //ROUTING + STATUS CODES
 
     // 200 OK - Success
     if (pathname === '/' || pathname === '/api') {

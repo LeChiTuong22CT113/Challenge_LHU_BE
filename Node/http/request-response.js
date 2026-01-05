@@ -1,11 +1,9 @@
-// TASK 4: HTTP Request & Response Demo
-
 const http = require('http');
 
 const PORT = 3000;
 
 const server = http.createServer((req, res) => {
-    // ========== REQUEST OBJECT ==========
+    //REQUEST OBJECT
     console.log('\n=== REQUEST INFO ===');
     console.log('Method:', req.method);
     console.log('URL:', req.url);
@@ -17,7 +15,7 @@ const server = http.createServer((req, res) => {
     console.log('Pathname:', url.pathname);
     console.log('Search Params:', Object.fromEntries(url.searchParams));
 
-    // ========== RESPONSE OBJECT ==========
+    //RESPONSE OBJECT
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('X-Author', 'Le Chi Tuong');

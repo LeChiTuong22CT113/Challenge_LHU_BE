@@ -1,4 +1,3 @@
-// TASK 4: Basic HTTP Server
 // Create server with http module
 
 const http = require('http');
