@@ -1,4 +1,3 @@
-// TASK 6: Middleware Concept Demo
 // Middleware = functions that run between request and response
 
 const express = require('express');

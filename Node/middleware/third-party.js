@@ -1,4 +1,3 @@
-// TASK 6: Third-party Middleware Demo
 // Using morgan (logging) and cors
 
 const express = require('express');
