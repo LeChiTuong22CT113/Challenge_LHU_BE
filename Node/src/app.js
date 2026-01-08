@@ -24,34 +24,33 @@ app.use('/api', routes);
 // ============ HOME ROUTE ============
 app.get('/', (req, res) => {
     res.json({
-        message: 'MVC Pattern API',
+        message: 'Task Manager API',
         version: '1.0.0',
-        structure: {
-            models: 'src/models/ - Data layer (Mongoose schemas)',
-            controllers: 'src/controllers/ - Business logic',
-            routes: 'src/routes/ - API endpoints',
-            utils: 'src/utils/ - Helper functions'
-        },
         endpoints: {
             users: {
                 'GET /api/users': 'Get all users',
                 'GET /api/users/:id': 'Get user by ID',
-                'GET /api/users/stats/count': 'Count users',
                 'POST /api/users': 'Create user',
-                'POST /api/users/many': 'Create multiple users',
-                'PUT /api/users/:id': 'Full update user',
-                'PATCH /api/users/:id': 'Partial update user',
-                'PATCH /api/users/bulk/update': 'Bulk update users',
-                'DELETE /api/users/:id': 'Delete user',
-                'DELETE /api/users/bulk/delete': 'Bulk delete users'
+                'PUT /api/users/:id': 'Update user',
+                'PATCH /api/users/:id': 'Partial update',
+                'DELETE /api/users/:id': 'Delete user'
             },
             todos: {
                 'GET /api/todos': 'Get all todos',
                 'GET /api/todos/:id': 'Get todo by ID',
                 'POST /api/todos': 'Create todo',
                 'PUT /api/todos/:id': 'Update todo',
-                'PATCH /api/todos/:id/toggle': 'Toggle todo status',
                 'DELETE /api/todos/:id': 'Delete todo'
+            },
+            tasks: {
+                'GET /api/tasks': 'Get all tasks',
+                'GET /api/tasks/stats': 'Statistics',
+                'GET /api/tasks/:id': 'Get task by ID',
+                'POST /api/tasks': 'Create task',
+                'PUT /api/tasks/:id': 'Update task',
+                'PATCH /api/tasks/:id/status': 'Update status',
+                'POST /api/tasks/:id/subtasks': 'Add subtask',
+                'DELETE /api/tasks/:id': 'Delete task'
             }
         }
     });
