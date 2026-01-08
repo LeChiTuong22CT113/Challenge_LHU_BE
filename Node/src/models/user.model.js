@@ -1,5 +1,7 @@
-// Mongoose Schema - User Model
-// All common Mongoose data types demonstration
+/**
+ * User Model - Mongoose Schema
+ * Demonstrates common Mongoose data types
+ */
 
 const mongoose = require('mongoose');
 
@@ -123,8 +125,8 @@ const userSchema = new mongoose.Schema({
     }
 
 }, {
-    timestamps: true,   // Adds createdAt, updatedAt
-    versionKey: false   // Removes __v
+    timestamps: true,
+    versionKey: false
 });
 
 const User = mongoose.model('User', userSchema);

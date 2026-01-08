@@ -1,4 +1,6 @@
-// Mongoose Schema - Todo Model
+/**
+ * Todo Model - Mongoose Schema
+ */
 
 const mongoose = require('mongoose');
 
