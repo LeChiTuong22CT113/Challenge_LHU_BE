@@ -1,9 +1,12 @@
 /**
  * User Model - Mongoose Schema
- * Demonstrates common Mongoose data types
+ * With password hashing using bcrypt
  */
 
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+
+const SALT_ROUNDS = 10;
 
 const userSchema = new mongoose.Schema({
 
@@ -25,6 +28,14 @@ const userSchema = new mongoose.Schema({
         match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
     },
 
+    // ============ PASSWORD ============
+    password: {
+        type: String,
+        required: [true, 'Password is required'],
+        minlength: [6, 'Password must be at least 6 characters'],
+        select: false  // Don't include in queries by default
+    },
+
     // ============ STRING WITH ENUM ============
     role: {
         type: String,
@@ -39,11 +50,6 @@ const userSchema = new mongoose.Schema({
         max: [150, 'Age cannot exceed 150']
     },
 
-    salary: {
-        type: Number,
-        default: 0
-    },
-
     // ============ BOOLEAN ============
     isActive: {
         type: Boolean,
@@ -56,72 +62,16 @@ const userSchema = new mongoose.Schema({
     },
 
     // ============ DATE ============
-    dateOfBirth: {
-        type: Date
-    },
-
     lastLogin: {
         type: Date,
         default: Date.now
     },
 
-    // ============ ARRAY OF STRINGS ============
-    hobbies: [{
-        type: String,
-        trim: true
-    }],
-
-    // ============ ARRAY OF NUMBERS ============
-    scores: [{
-        type: Number
-    }],
-
-    // ============ NESTED OBJECT (EMBEDDED) ============
+    // ============ NESTED OBJECT ============
     address: {
         street: { type: String },
         city: { type: String },
-        zipCode: { type: String },
         country: { type: String, default: 'Vietnam' }
-    },
-
-    // ============ ARRAY OF OBJECTS ============
-    education: [{
-        school: { type: String },
-        degree: { type: String },
-        year: { type: Number }
-    }],
-
-    // ============ OBJECTID (REFERENCE) ============
-    createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-
-    // ============ ARRAY OF OBJECTID ============
-    friends: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }],
-
-    // ============ BUFFER (Binary Data) ============
-    avatar: {
-        type: Buffer
-    },
-
-    // ============ MIXED (Any Type) ============
-    metadata: {
-        type: mongoose.Schema.Types.Mixed
-    },
-
-    // ============ MAP ============
-    socialLinks: {
-        type: Map,
-        of: String
-    },
-
-    // ============ DECIMAL128 (High Precision) ============
-    balance: {
-        type: mongoose.Schema.Types.Decimal128
     }
 
 }, {
@@ -129,6 +79,34 @@ const userSchema = new mongoose.Schema({
     versionKey: false
 });
 
+// ============ PRE-SAVE HOOK - Hash password ============
+userSchema.pre('save', async function (next) {
+    // Only hash if password is modified
+    if (!this.isModified('password')) return next();
+
+    try {
+        this.password = await bcrypt.hash(this.password, SALT_ROUNDS);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ============ METHODS ============
+
+// Compare password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Hide password in JSON
+userSchema.methods.toJSON = function () {
+    const user = this.toObject();
+    delete user.password;
+    return user;
+};
+
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;
+
