@@ -1,18 +1,23 @@
 /**
- * Auth Routes - Register and Login
+ * Auth Routes - Register, Login with JWT
  */
 
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/auth.controller');
+const { register, login, getMe, updatePassword } = require('../controllers/auth.controller');
 
-// Validation
+// Middleware
 const { validateBody } = require('../middlewares/validate.middleware');
+const { protect } = require('../middlewares/auth.middleware');
 const { registerSchema, loginSchema } = require('../validations/auth.validation');
 
-// Routes
+// Public routes
 router.post('/register', validateBody(registerSchema), register);
 router.post('/login', validateBody(loginSchema), login);
-router.get('/me', getMe);
+
+// Protected routes (require token)
+router.get('/me', protect, getMe);
+router.put('/password', protect, updatePassword);
 
 module.exports = router;
+

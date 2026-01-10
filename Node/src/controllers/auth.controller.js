@@ -1,8 +1,9 @@
 /**
- * Auth Controller - Register and Login
+ * Auth Controller - Register, Login with JWT
  */
 
 const User = require('../models/user.model');
+const { generateUserToken } = require('../utils/jwt.util');
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -27,6 +28,9 @@ const register = async (req, res) => {
             role
         });
 
+        // Generate JWT token
+        const token = generateUserToken(user);
+
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
@@ -35,7 +39,8 @@ const register = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role
-            }
+            },
+            token
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -78,6 +83,9 @@ const login = async (req, res) => {
         user.lastLogin = new Date();
         await user.save();
 
+        // Generate JWT token
+        const token = generateUserToken(user);
+
         res.json({
             success: true,
             message: 'Login successful',
@@ -86,7 +94,8 @@ const login = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role
-            }
+            },
+            token
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -95,12 +104,48 @@ const login = async (req, res) => {
 
 // @desc    Get current user profile
 // @route   GET /api/auth/me
+// @access  Private (requires token)
 const getMe = async (req, res) => {
     try {
-        // For now, just return info (JWT will be added in next task)
+        // req.user is set by protect middleware
         res.json({
             success: true,
-            message: 'Auth endpoint working. JWT will be added in next task.'
+            data: req.user
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Update password
+// @route   PUT /api/auth/password
+// @access  Private
+const updatePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        const user = await User.findById(req.user._id).select('+password');
+
+        // Check current password
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Current password is incorrect'
+            });
+        }
+
+        // Update password
+        user.password = newPassword;
+        await user.save();
+
+        // Generate new token
+        const token = generateUserToken(user);
+
+        res.json({
+            success: true,
+            message: 'Password updated successfully',
+            token
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -110,5 +155,7 @@ const getMe = async (req, res) => {
 module.exports = {
     register,
     login,
-    getMe
+    getMe,
+    updatePassword
 };
+
