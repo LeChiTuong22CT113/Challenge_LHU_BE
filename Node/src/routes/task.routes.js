@@ -1,6 +1,6 @@
 /**
  * Task Routes - API endpoints for Task Manager
- * With Joi validation
+ * With Joi validation and Authorization
  */
 
 const express = require('express');
@@ -19,8 +19,9 @@ const {
     getTaskStats
 } = require('../controllers/task.controller');
 
-// Validation
+// Middleware
 const { validateBody, validateParams } = require('../middlewares/validate.middleware');
+const { protect, authorize } = require('../middlewares/auth.middleware');
 const {
     createTaskSchema,
     updateTaskSchema,
@@ -29,34 +30,26 @@ const {
     objectIdSchema
 } = require('../validations/task.validation');
 
-// Stats route (must be before :id)
+// All routes require authentication
+router.use(protect);
+
+// ============ READ (All authenticated users) ============
 router.get('/stats', getTaskStats);
+router.get('/', getTasks);
+router.get('/:id', validateParams(objectIdSchema), getTaskById);
 
-// Main routes
-router.route('/')
-    .get(getTasks)
-    .post(validateBody(createTaskSchema), createTask);
+// ============ CREATE/UPDATE (All authenticated users) ============
+router.post('/', validateBody(createTaskSchema), createTask);
+router.put('/:id', validateParams(objectIdSchema), validateBody(updateTaskSchema), updateTask);
+router.patch('/:id/status', validateParams(objectIdSchema), validateBody(updateStatusSchema), updateTaskStatus);
 
-router.route('/:id')
-    .get(validateParams(objectIdSchema), getTaskById)
-    .put(validateParams(objectIdSchema), validateBody(updateTaskSchema), updateTask)
-    .delete(validateParams(objectIdSchema), deleteTask);
-
-// Status update
-router.patch('/:id/status',
-    validateParams(objectIdSchema),
-    validateBody(updateStatusSchema),
-    updateTaskStatus
-);
-
-// Subtask routes
-router.post('/:id/subtasks',
-    validateParams(objectIdSchema),
-    validateBody(subtaskSchema),
-    addSubtask
-);
-
+// Subtasks
+router.post('/:id/subtasks', validateParams(objectIdSchema), validateBody(subtaskSchema), addSubtask);
 router.patch('/:id/subtasks/:subtaskId', toggleSubtask);
 
+// ============ DELETE (Admin or Task Owner) ============
+router.delete('/:id', validateParams(objectIdSchema), deleteTask);
+
 module.exports = router;
+
 
