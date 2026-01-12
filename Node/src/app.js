@@ -8,7 +8,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const routes = require('./routes');
-const { sendError } = require('./utils/response.util');
+const globalErrorHandler = require('./middlewares/error.middleware');
+const { AppError } = require('./utils/appError');
 
 const app = express();
 
@@ -27,44 +28,21 @@ app.get('/', (req, res) => {
         message: 'Task Manager API',
         version: '1.0.0',
         endpoints: {
-            users: {
-                'GET /api/users': 'Get all users',
-                'GET /api/users/:id': 'Get user by ID',
-                'POST /api/users': 'Create user',
-                'PUT /api/users/:id': 'Update user',
-                'PATCH /api/users/:id': 'Partial update',
-                'DELETE /api/users/:id': 'Delete user'
-            },
-            todos: {
-                'GET /api/todos': 'Get all todos',
-                'GET /api/todos/:id': 'Get todo by ID',
-                'POST /api/todos': 'Create todo',
-                'PUT /api/todos/:id': 'Update todo',
-                'DELETE /api/todos/:id': 'Delete todo'
-            },
-            tasks: {
-                'GET /api/tasks': 'Get all tasks',
-                'GET /api/tasks/stats': 'Statistics',
-                'GET /api/tasks/:id': 'Get task by ID',
-                'POST /api/tasks': 'Create task',
-                'PUT /api/tasks/:id': 'Update task',
-                'PATCH /api/tasks/:id/status': 'Update status',
-                'POST /api/tasks/:id/subtasks': 'Add subtask',
-                'DELETE /api/tasks/:id': 'Delete task'
-            }
+            auth: '/api/auth (register, login, me)',
+            users: '/api/users (CRUD)',
+            tasks: '/api/tasks (CRUD)',
+            todos: '/api/todos (CRUD)'
         }
     });
 });
 
 // ============ 404 HANDLER ============
-app.use((req, res) => {
-    sendError(res, `Route ${req.method} ${req.url} not found`, 404);
+app.use((req, res, next) => {
+    next(new AppError(`Route ${req.method} ${req.originalUrl} not found`, 404));
 });
 
-// ============ ERROR HANDLER ============
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    sendError(res, err.message || 'Internal Server Error', err.status || 500);
-});
+// ============ GLOBAL ERROR HANDLER ============
+app.use(globalErrorHandler);
 
 module.exports = app;
+
