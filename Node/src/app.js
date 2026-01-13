@@ -19,6 +19,9 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ============ STATIC FILES ============
+app.use('/uploads', express.static('uploads'));
+
 // ============ API ROUTES ============
 app.use('/api', routes);
 
@@ -31,8 +34,10 @@ app.get('/', (req, res) => {
             auth: '/api/auth (register, login, me)',
             users: '/api/users (CRUD)',
             tasks: '/api/tasks (CRUD)',
-            todos: '/api/todos (CRUD)'
-        }
+            todos: '/api/todos (CRUD)',
+            upload: '/api/upload (image, images, document)'
+        },
+        staticFiles: '/uploads/:filename'
     });
 });
 
