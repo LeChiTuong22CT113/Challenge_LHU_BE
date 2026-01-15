@@ -67,6 +67,16 @@ const userSchema = new mongoose.Schema({
         default: Date.now
     },
 
+    // ============ AVATAR ============
+    avatar: {
+        type: String,
+        default: null
+    },
+
+    // ============ PASSWORD RESET ============
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+
     // ============ NESTED OBJECT ============
     address: {
         street: { type: String },

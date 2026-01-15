@@ -1,7 +1,9 @@
 /**
- * Auth Controller - Register, Login with JWT
+ * Auth Controller - Complete Auth System
+ * Register, Login, Forgot Password, Reset Password, Profile
  */
 
+const crypto = require('crypto');
 const User = require('../models/user.model');
 const { generateUserToken } = require('../utils/jwt.util');
 
@@ -11,7 +13,6 @@ const register = async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
 
-        // Check if user exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(409).json({
@@ -20,26 +21,13 @@ const register = async (req, res) => {
             });
         }
 
-        // Create user (password will be hashed by pre-save hook)
-        const user = await User.create({
-            name,
-            email,
-            password,
-            role
-        });
-
-        // Generate JWT token
+        const user = await User.create({ name, email, password, role });
         const token = generateUserToken(user);
 
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
-            data: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
+            data: { id: user._id, name: user.name, email: user.email, role: user.role },
             token
         });
     } catch (error) {
@@ -53,7 +41,6 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Validate input
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -61,7 +48,6 @@ const login = async (req, res) => {
             });
         }
 
-        // Find user and include password
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
             return res.status(401).json({
@@ -70,7 +56,6 @@ const login = async (req, res) => {
             });
         }
 
-        // Check password
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(401).json({
@@ -79,22 +64,15 @@ const login = async (req, res) => {
             });
         }
 
-        // Update last login
         user.lastLogin = new Date();
         await user.save();
 
-        // Generate JWT token
         const token = generateUserToken(user);
 
         res.json({
             success: true,
             message: 'Login successful',
-            data: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
+            data: { id: user._id, name: user.name, email: user.email, role: user.role },
             token
         });
     } catch (error) {
@@ -104,13 +82,59 @@ const login = async (req, res) => {
 
 // @desc    Get current user profile
 // @route   GET /api/auth/me
-// @access  Private (requires token)
 const getMe = async (req, res) => {
     try {
-        // req.user is set by protect middleware
+        res.json({ success: true, data: req.user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Update profile
+// @route   PUT /api/auth/profile
+const updateProfile = async (req, res) => {
+    try {
+        const { name, age, address } = req.body;
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { name, age, address },
+            { new: true, runValidators: true }
+        );
+
         res.json({
             success: true,
-            data: req.user
+            message: 'Profile updated successfully',
+            data: user
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Upload avatar
+// @route   POST /api/auth/avatar
+const uploadAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No image uploaded'
+            });
+        }
+
+        const avatarUrl = `/uploads/${req.file.filename}`;
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { avatar: avatarUrl },
+            { new: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Avatar uploaded successfully',
+            data: { avatar: avatarUrl }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -119,14 +143,12 @@ const getMe = async (req, res) => {
 
 // @desc    Update password
 // @route   PUT /api/auth/password
-// @access  Private
 const updatePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
         const user = await User.findById(req.user._id).select('+password');
 
-        // Check current password
         const isMatch = await user.comparePassword(currentPassword);
         if (!isMatch) {
             return res.status(401).json({
@@ -135,11 +157,9 @@ const updatePassword = async (req, res) => {
             });
         }
 
-        // Update password
         user.password = newPassword;
         await user.save();
 
-        // Generate new token
         const token = generateUserToken(user);
 
         res.json({
@@ -152,10 +172,91 @@ const updatePassword = async (req, res) => {
     }
 };
 
+// @desc    Forgot password - Generate reset token
+// @route   POST /api/auth/forgot-password
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'No user found with this email'
+            });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+        // Save to user (expires in 10 minutes)
+        user.resetPasswordToken = resetTokenHash;
+        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+        await user.save();
+
+        // In real app, send email with reset link
+        // For demo, return token directly
+        res.json({
+            success: true,
+            message: 'Password reset token generated',
+            resetToken,  // In production, send via email instead
+            resetUrl: `POST /api/auth/reset-password/${resetToken}`
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Reset password with token
+// @route   POST /api/auth/reset-password/:token
+const resetPassword = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { newPassword } = req.body;
+
+        // Hash token to compare
+        const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const user = await User.findOne({
+            resetPasswordToken: resetTokenHash,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired reset token'
+            });
+        }
+
+        // Update password
+        user.password = newPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        const jwtToken = generateUserToken(user);
+
+        res.json({
+            success: true,
+            message: 'Password reset successful',
+            token: jwtToken
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     register,
     login,
     getMe,
-    updatePassword
+    updateProfile,
+    uploadAvatar,
+    updatePassword,
+    forgotPassword,
+    resetPassword
 };
+
 
