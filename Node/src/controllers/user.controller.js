@@ -5,6 +5,7 @@
 
 const User = require('../models/user.model');
 const { sendSuccess, sendError } = require('../utils/response.util');
+const { APIFeatures, paginateResponse } = require('../utils/apiFeatures');
 
 /**
  * @desc    Create a new user
@@ -14,7 +15,6 @@ exports.createUser = async (req, res) => {
     try {
         const { name, email, age, role } = req.body;
 
-        // Validation
         if (!name || !email) {
             return sendError(res, 'Name and email are required', 400);
         }
@@ -51,38 +51,28 @@ exports.createManyUsers = async (req, res) => {
 };
 
 /**
- * @desc    Get all users with filters
+ * @desc    Get all users with advanced query
  * @route   GET /api/users
+ * @query   ?search=john&role=admin&sort=-createdAt&page=1&limit=10&fields=name,email
  */
 exports.getUsers = async (req, res) => {
     try {
-        const { role, isActive, minAge, maxAge, sort, limit, skip } = req.query;
+        // Build query with APIFeatures
+        const features = new APIFeatures(User.find(), req.query)
+            .filter()
+            .search(['name', 'email'])
+            .sort()
+            .select()
+            .paginate();
 
-        let query = {};
+        const users = await features.query;
+        const pagination = await paginateResponse(User, features);
 
-        if (role) query.role = role;
-        if (isActive !== undefined) query.isActive = isActive === 'true';
-
-        if (minAge || maxAge) {
-            query.age = {};
-            if (minAge) query.age.$gte = parseInt(minAge);
-            if (maxAge) query.age.$lte = parseInt(maxAge);
-        }
-
-        let result = User.find(query);
-
-        if (sort) {
-            const sortOrder = sort.startsWith('-') ? -1 : 1;
-            const sortField = sort.replace('-', '');
-            result = result.sort({ [sortField]: sortOrder });
-        }
-
-        if (skip) result = result.skip(parseInt(skip));
-        if (limit) result = result.limit(parseInt(limit));
-
-        const users = await result;
-
-        sendSuccess(res, { count: users.length, users });
+        sendSuccess(res, {
+            count: users.length,
+            pagination,
+            users
+        });
     } catch (error) {
         sendError(res, error.message, 500);
     }
