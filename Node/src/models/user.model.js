@@ -86,7 +86,17 @@ const userSchema = new mongoose.Schema({
 
 }, {
     timestamps: true,
-    versionKey: false
+    versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+// ============ VIRTUAL POPULATE ============
+// Get all posts by this user (reverse populate)
+userSchema.virtual('posts', {
+    ref: 'Post',
+    localField: '_id',
+    foreignField: 'author'
 });
 
 // ============ PRE-SAVE HOOK - Hash password ============
