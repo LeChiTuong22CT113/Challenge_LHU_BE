@@ -3,10 +3,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-
-// Secret key (should be in .env in production)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const config = require('../config');
 
 /**
  * Generate JWT token
@@ -14,8 +11,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
  * @returns {String} JWT token
  */
 const generateToken = (payload) => {
-    return jwt.sign(payload, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN
+    return jwt.sign(payload, config.jwt.secret, {
+        expiresIn: config.jwt.expiresIn
     });
 };
 
@@ -25,7 +22,7 @@ const generateToken = (payload) => {
  * @returns {Object} Decoded payload
  */
 const verifyToken = (token) => {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, config.jwt.secret);
 };
 
 /**
@@ -44,7 +41,6 @@ const generateUserToken = (user) => {
 module.exports = {
     generateToken,
     verifyToken,
-    generateUserToken,
-    JWT_SECRET,
-    JWT_EXPIRES_IN
+    generateUserToken
 };
+
