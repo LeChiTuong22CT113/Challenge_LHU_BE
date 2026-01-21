@@ -1,11 +1,13 @@
 /**
  * Express App Configuration
- * Middleware, routes, error handling setup
+ * Middleware, routes, error handling, Swagger docs
  */
 
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 const routes = require('./routes');
 const globalErrorHandler = require('./middlewares/error.middleware');
@@ -22,6 +24,12 @@ app.use(express.urlencoded({ extended: true }));
 // ============ STATIC FILES ============
 app.use('/uploads', express.static('uploads'));
 
+// ============ SWAGGER DOCS ============
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Task Manager API Docs'
+}));
+
 // ============ API ROUTES ============
 app.use('/api', routes);
 
@@ -30,14 +38,14 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Task Manager API',
         version: '1.0.0',
+        documentation: '/api-docs',
         endpoints: {
-            auth: '/api/auth (register, login, me)',
-            users: '/api/users (CRUD)',
-            tasks: '/api/tasks (CRUD)',
-            todos: '/api/todos (CRUD)',
-            upload: '/api/upload (image, images, document)'
-        },
-        staticFiles: '/uploads/:filename'
+            auth: '/api/auth',
+            users: '/api/users',
+            tasks: '/api/tasks',
+            posts: '/api/posts',
+            upload: '/api/upload'
+        }
     });
 });
 
@@ -50,4 +58,5 @@ app.use((req, res, next) => {
 app.use(globalErrorHandler);
 
 module.exports = app;
+
 
