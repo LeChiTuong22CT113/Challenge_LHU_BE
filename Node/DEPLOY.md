@@ -56,8 +56,8 @@ Click **Create Web Service** → Chờ deploy hoàn tất
 
 ## URL sau khi deploy:
 ```
-https://challenge-lhu-api.onrender.com
-https://challenge-lhu-api.onrender.com/api-docs
+https://challenge-lhu-be.onrender.com
+https://challenge-lhu-be.onrender.com/api-docs
 ```
 
 ## Lưu ý:
