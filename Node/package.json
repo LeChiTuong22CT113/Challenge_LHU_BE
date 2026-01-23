@@ -2,21 +2,21 @@
   "name": "challenge-lhu-backend",
   "version": "1.0.0",
   "description": "Backend Challenge LHU - Node.js Learning",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node index.js",
-    "event-loop": "node async/event-loop.js",
-    "promise": "node async/promise-demo.js",
-    "async": "node async/async-await-demo.js",
-    "commonjs": "node modules/commonjs-demo.js",
-    "esmodule": "node modules/esmodule-demo.mjs",
-    "builtin": "node modules/builtin-modules.js",
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
     "test": "echo \"No tests yet\" && exit 0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "nodejs",
     "backend",
-    "learning"
+    "api",
+    "express",
+    "mongodb"
   ],
   "author": "Lê Chí Tường",
   "license": "ISC",
@@ -36,3 +36,4 @@
     "swagger-ui-express": "^5.0.1"
   }
 }
+
