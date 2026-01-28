@@ -11,6 +11,7 @@ const todoRoutes = require('./todo.routes');
 const taskRoutes = require('./task.routes');
 const uploadRoutes = require('./upload.routes');
 const postRoutes = require('./post.routes');
+const proxyRoutes = require('./proxy.routes');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -19,6 +20,7 @@ router.use('/todos', todoRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/posts', postRoutes);
+router.use('/proxy', proxyRoutes);
 
 module.exports = router;
 

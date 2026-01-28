@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ============ STATIC FILES ============
 app.use('/uploads', express.static('uploads'));
+app.use(express.static('public'));
 
 // ============ SWAGGER DOCS ============
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
