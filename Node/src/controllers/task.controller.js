@@ -1,269 +1,210 @@
 /**
- * Task Controller - Business logic for Task Manager
+ * Task Controller - Refactored with Clean Code
+ * catchAsync, AppError, lean() for queries
  */
 
 const Task = require('../models/task.model');
+const catchAsync = require('../utils/catchAsync');
+const { AppError } = require('../utils/appError');
 
-// @desc    Get all tasks
-// @route   GET /api/tasks
-const getTasks = async (req, res) => {
-    try {
-        const { status, priority, category, search, sortBy, limit = 10, page = 1 } = req.query;
+/**
+ * @desc    Get all tasks with filtering, sorting, pagination
+ * @route   GET /api/tasks
+ */
+const getTasks = catchAsync(async (req, res) => {
+    const { status, priority, category, search, sortBy, limit = 10, page = 1 } = req.query;
 
-        let query = {};
+    const query = {};
 
-        // Filter by status
-        if (status) query.status = status;
+    if (status) query.status = status;
+    if (priority) query.priority = priority;
+    if (category) query.category = category;
+    if (search) query.$text = { $search: search };
 
-        // Filter by priority
-        if (priority) query.priority = priority;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Filter by category
-        if (category) query.category = category;
-
-        // Text search
-        if (search) {
-            query.$text = { $search: search };
-        }
-
-        // Pagination
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-
-        // Build query
-        let result = Task.find(query)
+    const [tasks, total] = await Promise.all([
+        Task.find(query)
             .populate('assignedTo', 'name email')
             .populate('createdBy', 'name email')
+            .sort(sortBy ? { [sortBy.replace('-', '')]: sortBy.startsWith('-') ? -1 : 1 } : { createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean(),
+        Task.countDocuments(query)
+    ]);
 
-        // Sorting
-        if (sortBy) {
-            const sortOrder = sortBy.startsWith('-') ? -1 : 1;
-            const sortField = sortBy.replace('-', '');
-            result = result.sort({ [sortField]: sortOrder });
-        } else {
-            result = result.sort({ createdAt: -1 });
-        }
+    res.json({
+        success: true,
+        count: tasks.length,
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        data: tasks
+    });
+});
 
-        const tasks = await result;
-        const total = await Task.countDocuments(query);
+/**
+ * @desc    Get task by ID
+ * @route   GET /api/tasks/:id
+ */
+const getTaskById = catchAsync(async (req, res, next) => {
+    const task = await Task.findById(req.params.id)
+        .populate('assignedTo', 'name email')
+        .populate('createdBy', 'name email')
+        .lean();
 
-        res.json({
-            success: true,
-            count: tasks.length,
-            total,
-            page: parseInt(page),
-            pages: Math.ceil(total / parseInt(limit)),
-            data: tasks
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!task) {
+        return next(new AppError('Task not found', 404));
     }
-};
 
-// @desc    Get task by ID
-// @route   GET /api/tasks/:id
-const getTaskById = async (req, res) => {
-    try {
-        const task = await Task.findById(req.params.id)
-            .populate('assignedTo', 'name email')
-            .populate('createdBy', 'name email');
+    res.json({ success: true, data: task });
+});
 
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
+/**
+ * @desc    Create new task
+ * @route   POST /api/tasks
+ */
+const createTask = catchAsync(async (req, res, next) => {
+    const { title } = req.body;
 
-        res.json({ success: true, data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!title) {
+        return next(new AppError('Title is required', 400));
     }
-};
 
-// @desc    Create new task
-// @route   POST /api/tasks
-const createTask = async (req, res) => {
-    try {
-        const { title, description, status, priority, dueDate, assignedTo, category, tags } = req.body;
+    const task = await Task.create(req.body);
 
-        if (!title) {
-            return res.status(400).json({ success: false, message: 'Title is required' });
-        }
+    res.status(201).json({
+        success: true,
+        message: 'Task created',
+        data: task
+    });
+});
 
-        const task = await Task.create({
-            title,
-            description,
-            status,
-            priority,
-            dueDate,
-            assignedTo,
-            category,
-            tags
-        });
+/**
+ * @desc    Update task
+ * @route   PUT /api/tasks/:id
+ */
+const updateTask = catchAsync(async (req, res, next) => {
+    const task = await Task.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+    );
 
-        res.status(201).json({ success: true, message: 'Task created', data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!task) {
+        return next(new AppError('Task not found', 404));
     }
-};
 
-// @desc    Update task
-// @route   PUT /api/tasks/:id
-const updateTask = async (req, res) => {
-    try {
-        const task = await Task.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, runValidators: true }
-        );
+    res.json({ success: true, message: 'Task updated', data: task });
+});
 
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
+/**
+ * @desc    Update task status
+ * @route   PATCH /api/tasks/:id/status
+ */
+const updateTaskStatus = catchAsync(async (req, res, next) => {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'in-progress', 'completed', 'cancelled'];
 
-        res.json({ success: true, message: 'Task updated', data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!validStatuses.includes(status)) {
+        return next(new AppError('Invalid status', 400));
     }
-};
 
-// @desc    Update task status
-// @route   PATCH /api/tasks/:id/status
-const updateTaskStatus = async (req, res) => {
-    try {
-        const { status } = req.body;
-
-        if (!['pending', 'in-progress', 'completed', 'cancelled'].includes(status)) {
-            return res.status(400).json({ success: false, message: 'Invalid status' });
-        }
-
-        const updateData = { status };
-        if (status === 'completed') {
-            updateData.completedAt = new Date();
-        }
-
-        const task = await Task.findByIdAndUpdate(
-            req.params.id,
-            updateData,
-            { new: true }
-        );
-
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
-
-        res.json({ success: true, message: `Task marked as ${status}`, data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    const updateData = { status };
+    if (status === 'completed') {
+        updateData.completedAt = new Date();
     }
-};
 
-// @desc    Add subtask
-// @route   POST /api/tasks/:id/subtasks
-const addSubtask = async (req, res) => {
-    try {
-        const { title } = req.body;
+    const task = await Task.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
-        if (!title) {
-            return res.status(400).json({ success: false, message: 'Subtask title is required' });
-        }
-
-        const task = await Task.findByIdAndUpdate(
-            req.params.id,
-            { $push: { subtasks: { title, completed: false } } },
-            { new: true }
-        );
-
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
-
-        res.json({ success: true, message: 'Subtask added', data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!task) {
+        return next(new AppError('Task not found', 404));
     }
-};
 
-// @desc    Toggle subtask
-// @route   PATCH /api/tasks/:id/subtasks/:subtaskId
-const toggleSubtask = async (req, res) => {
-    try {
-        const task = await Task.findById(req.params.id);
+    res.json({ success: true, message: `Task marked as ${status}`, data: task });
+});
 
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
+/**
+ * @desc    Add subtask
+ * @route   POST /api/tasks/:id/subtasks
+ */
+const addSubtask = catchAsync(async (req, res, next) => {
+    const { title } = req.body;
 
-        const subtask = task.subtasks.id(req.params.subtaskId);
-        if (!subtask) {
-            return res.status(404).json({ success: false, message: 'Subtask not found' });
-        }
-
-        subtask.completed = !subtask.completed;
-        await task.save();
-
-        res.json({ success: true, message: 'Subtask toggled', data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!title) {
+        return next(new AppError('Subtask title is required', 400));
     }
-};
 
-// @desc    Delete task
-// @route   DELETE /api/tasks/:id
-const deleteTask = async (req, res) => {
-    try {
-        const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findByIdAndUpdate(
+        req.params.id,
+        { $push: { subtasks: { title, completed: false } } },
+        { new: true }
+    );
 
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
-
-        res.json({ success: true, message: 'Task deleted', data: task });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!task) {
+        return next(new AppError('Task not found', 404));
     }
-};
 
-// @desc    Get task statistics
-// @route   GET /api/tasks/stats
-const getTaskStats = async (req, res) => {
-    try {
-        const stats = await Task.aggregate([
-            {
-                $group: {
-                    _id: '$status',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+    res.json({ success: true, message: 'Subtask added', data: task });
+});
 
-        const priorityStats = await Task.aggregate([
-            {
-                $group: {
-                    _id: '$priority',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+/**
+ * @desc    Toggle subtask
+ * @route   PATCH /api/tasks/:id/subtasks/:subtaskId
+ */
+const toggleSubtask = catchAsync(async (req, res, next) => {
+    const task = await Task.findById(req.params.id);
 
-        const total = await Task.countDocuments();
-        const overdue = await Task.countDocuments({
+    if (!task) {
+        return next(new AppError('Task not found', 404));
+    }
+
+    const subtask = task.subtasks.id(req.params.subtaskId);
+    if (!subtask) {
+        return next(new AppError('Subtask not found', 404));
+    }
+
+    subtask.completed = !subtask.completed;
+    await task.save();
+
+    res.json({ success: true, message: 'Subtask toggled', data: task });
+});
+
+/**
+ * @desc    Delete task
+ * @route   DELETE /api/tasks/:id
+ */
+const deleteTask = catchAsync(async (req, res, next) => {
+    const task = await Task.findByIdAndDelete(req.params.id);
+
+    if (!task) {
+        return next(new AppError('Task not found', 404));
+    }
+
+    res.json({ success: true, message: 'Task deleted', data: task });
+});
+
+/**
+ * @desc    Get task statistics
+ * @route   GET /api/tasks/stats
+ */
+const getTaskStats = catchAsync(async (req, res) => {
+    const [stats, priorityStats, total, overdue] = await Promise.all([
+        Task.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+        Task.aggregate([{ $group: { _id: '$priority', count: { $sum: 1 } } }]),
+        Task.countDocuments(),
+        Task.countDocuments({
             dueDate: { $lt: new Date() },
             status: { $ne: 'completed' }
-        });
+        })
+    ]);
 
-        res.json({
-            success: true,
-            data: {
-                total,
-                overdue,
-                byStatus: stats,
-                byPriority: priorityStats
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
+    res.json({
+        success: true,
+        data: { total, overdue, byStatus: stats, byPriority: priorityStats }
+    });
+});
 
 module.exports = {
     getTasks,

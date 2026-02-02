@@ -1,252 +1,212 @@
 /**
- * Auth Controller - Complete Auth System
- * Register, Login, Forgot Password, Reset Password, Profile
+ * Auth Controller - Complete Auth System (Refactored)
+ * Clean code with catchAsync and AppError
  */
 
 const crypto = require('crypto');
 const User = require('../models/user.model');
 const { generateUserToken } = require('../utils/jwt.util');
+const catchAsync = require('../utils/catchAsync');
+const { AppError } = require('../utils/appError');
 
-// @desc    Register new user
-// @route   POST /api/auth/register
-const register = async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
+/**
+ * @desc    Register new user
+ * @route   POST /api/auth/register
+ */
+const register = catchAsync(async (req, res, next) => {
+    const { name, email, password, role } = req.body;
 
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(409).json({
-                success: false,
-                message: 'Email already registered'
-            });
-        }
-
-        const user = await User.create({ name, email, password, role });
-        const token = generateUserToken(user);
-
-        res.status(201).json({
-            success: true,
-            message: 'User registered successfully',
-            data: { id: user._id, name: user.name, email: user.email, role: user.role },
-            token
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    // Check existing user
+    const existingUser = await User.findOne({ email }).lean();
+    if (existingUser) {
+        return next(new AppError('Email already registered', 409));
     }
-};
 
-// @desc    Login user
-// @route   POST /api/auth/login
-const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+    const user = await User.create({ name, email, password, role });
+    const token = generateUserToken(user);
 
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and password are required'
-            });
-        }
+    res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        data: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        },
+        token
+    });
+});
 
-        const user = await User.findOne({ email }).select('+password');
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password'
-            });
-        }
+/**
+ * @desc    Login user
+ * @route   POST /api/auth/login
+ */
+const login = catchAsync(async (req, res, next) => {
+    const { email, password } = req.body;
 
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password'
-            });
-        }
-
-        user.lastLogin = new Date();
-        await user.save();
-
-        const token = generateUserToken(user);
-
-        res.json({
-            success: true,
-            message: 'Login successful',
-            data: { id: user._id, name: user.name, email: user.email, role: user.role },
-            token
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    if (!email || !password) {
+        return next(new AppError('Email and password are required', 400));
     }
-};
 
-// @desc    Get current user profile
-// @route   GET /api/auth/me
-const getMe = async (req, res) => {
-    try {
-        res.json({ success: true, data: req.user });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    const user = await User.findOne({ email }).select('+password');
+    if (!user || !(await user.comparePassword(password))) {
+        return next(new AppError('Invalid email or password', 401));
     }
-};
 
-// @desc    Update profile
-// @route   PUT /api/auth/profile
-const updateProfile = async (req, res) => {
-    try {
-        const { name, age, address } = req.body;
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save({ validateBeforeSave: false });
 
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { name, age, address },
-            { new: true, runValidators: true }
-        );
+    const token = generateUserToken(user);
 
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            data: user
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        },
+        token
+    });
+});
+
+/**
+ * @desc    Get current user profile
+ * @route   GET /api/auth/me
+ */
+const getMe = catchAsync(async (req, res) => {
+    res.json({ success: true, data: req.user });
+});
+
+/**
+ * @desc    Update profile
+ * @route   PUT /api/auth/profile
+ */
+const updateProfile = catchAsync(async (req, res) => {
+    const { name, age, address } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { name, age, address },
+        { new: true, runValidators: true }
+    );
+
+    res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: user
+    });
+});
+
+/**
+ * @desc    Upload avatar
+ * @route   POST /api/auth/avatar
+ */
+const uploadAvatar = catchAsync(async (req, res, next) => {
+    if (!req.file) {
+        return next(new AppError('No image uploaded', 400));
     }
-};
 
-// @desc    Upload avatar
-// @route   POST /api/auth/avatar
-const uploadAvatar = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: 'No image uploaded'
-            });
-        }
+    const avatarUrl = `/uploads/${req.file.filename}`;
 
-        const avatarUrl = `/uploads/${req.file.filename}`;
+    await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
 
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { avatar: avatarUrl },
-            { new: true }
-        );
+    res.json({
+        success: true,
+        message: 'Avatar uploaded successfully',
+        data: { avatar: avatarUrl }
+    });
+});
 
-        res.json({
-            success: true,
-            message: 'Avatar uploaded successfully',
-            data: { avatar: avatarUrl }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+/**
+ * @desc    Update password
+ * @route   PUT /api/auth/password
+ */
+const updatePassword = catchAsync(async (req, res, next) => {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id).select('+password');
+
+    if (!(await user.comparePassword(currentPassword))) {
+        return next(new AppError('Current password is incorrect', 401));
     }
-};
 
-// @desc    Update password
-// @route   PUT /api/auth/password
-const updatePassword = async (req, res) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
+    user.password = newPassword;
+    await user.save();
 
-        const user = await User.findById(req.user._id).select('+password');
+    const token = generateUserToken(user);
 
-        const isMatch = await user.comparePassword(currentPassword);
-        if (!isMatch) {
-            return res.status(401).json({
-                success: false,
-                message: 'Current password is incorrect'
-            });
-        }
+    res.json({
+        success: true,
+        message: 'Password updated successfully',
+        token
+    });
+});
 
-        user.password = newPassword;
-        await user.save();
+/**
+ * @desc    Forgot password - Generate reset token
+ * @route   POST /api/auth/forgot-password
+ */
+const forgotPassword = catchAsync(async (req, res, next) => {
+    const { email } = req.body;
 
-        const token = generateUserToken(user);
-
-        res.json({
-            success: true,
-            message: 'Password updated successfully',
-            token
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    const user = await User.findOne({ email });
+    if (!user) {
+        return next(new AppError('No user found with this email', 404));
     }
-};
 
-// @desc    Forgot password - Generate reset token
-// @route   POST /api/auth/forgot-password
-const forgotPassword = async (req, res) => {
-    try {
-        const { email } = req.body;
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'No user found with this email'
-            });
-        }
+    // Save to user (expires in 10 minutes)
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
 
-        // Generate reset token
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    res.json({
+        success: true,
+        message: 'Password reset token generated',
+        resetToken,
+        resetUrl: `POST /api/auth/reset-password/${resetToken}`
+    });
+});
 
-        // Save to user (expires in 10 minutes)
-        user.resetPasswordToken = resetTokenHash;
-        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
-        await user.save();
+/**
+ * @desc    Reset password with token
+ * @route   POST /api/auth/reset-password/:token
+ */
+const resetPassword = catchAsync(async (req, res, next) => {
+    const { token } = req.params;
+    const { newPassword } = req.body;
 
-        // In real app, send email with reset link
-        // For demo, return token directly
-        res.json({
-            success: true,
-            message: 'Password reset token generated',
-            resetToken,  // In production, send via email instead
-            resetUrl: `POST /api/auth/reset-password/${resetToken}`
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+        resetPasswordToken: resetTokenHash,
+        resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+        return next(new AppError('Invalid or expired reset token', 400));
     }
-};
 
-// @desc    Reset password with token
-// @route   POST /api/auth/reset-password/:token
-const resetPassword = async (req, res) => {
-    try {
-        const { token } = req.params;
-        const { newPassword } = req.body;
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
 
-        // Hash token to compare
-        const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const jwtToken = generateUserToken(user);
 
-        const user = await User.findOne({
-            resetPasswordToken: resetTokenHash,
-            resetPasswordExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired reset token'
-            });
-        }
-
-        // Update password
-        user.password = newPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-
-        const jwtToken = generateUserToken(user);
-
-        res.json({
-            success: true,
-            message: 'Password reset successful',
-            token: jwtToken
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
+    res.json({
+        success: true,
+        message: 'Password reset successful',
+        token: jwtToken
+    });
+});
 
 module.exports = {
     register,
@@ -258,5 +218,3 @@ module.exports = {
     forgotPassword,
     resetPassword
 };
-
-

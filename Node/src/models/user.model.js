@@ -91,6 +91,13 @@ const userSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+// ============ INDEXES FOR QUERY OPTIMIZATION ============
+userSchema.index({ email: 1 }); // Already unique, but explicit
+userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ name: 'text', email: 'text' }); // Text search
+
 // ============ VIRTUAL POPULATE ============
 // Get all posts by this user (reverse populate)
 userSchema.virtual('posts', {

@@ -1,160 +1,158 @@
 /**
- * Todo Controller - Business Logic
- * Handles all todo-related operations
+ * Todo Controller - Refactored with Clean Code
+ * catchAsync, AppError, lean() for queries
  */
 
 const Todo = require('../models/todo.model');
-const { sendSuccess, sendError } = require('../utils/response.util');
+const catchAsync = require('../utils/catchAsync');
+const { AppError } = require('../utils/appError');
 
 /**
  * @desc    Create a new todo
  * @route   POST /api/todos
  */
-exports.createTodo = async (req, res) => {
-    try {
-        const { title, description, priority, dueDate, user, tags } = req.body;
+exports.createTodo = catchAsync(async (req, res, next) => {
+    const { title, description, priority, dueDate, user, tags } = req.body;
 
-        if (!title || !user) {
-            return sendError(res, 'Title and user are required', 400);
-        }
-
-        const todo = await Todo.create({
-            title,
-            description,
-            priority,
-            dueDate,
-            user,
-            tags
-        });
-
-        sendSuccess(res, todo, 'Todo created successfully', 201);
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (!title || !user) {
+        return next(new AppError('Title and user are required', 400));
     }
-};
+
+    const todo = await Todo.create({
+        title,
+        description,
+        priority,
+        dueDate,
+        user,
+        tags
+    });
+
+    res.status(201).json({
+        success: true,
+        message: 'Todo created successfully',
+        data: todo
+    });
+});
 
 /**
  * @desc    Get all todos
  * @route   GET /api/todos
  */
-exports.getTodos = async (req, res) => {
-    try {
-        const { user, completed, priority, sort, limit, skip } = req.query;
+exports.getTodos = catchAsync(async (req, res) => {
+    const { user, completed, priority, sort, limit, skip } = req.query;
 
-        let query = {};
+    const query = {};
+    if (user) query.user = user;
+    if (completed !== undefined) query.completed = completed === 'true';
+    if (priority) query.priority = priority;
 
-        if (user) query.user = user;
-        if (completed !== undefined) query.completed = completed === 'true';
-        if (priority) query.priority = priority;
+    let result = Todo.find(query).populate('user', 'name email');
 
-        let result = Todo.find(query).populate('user', 'name email');
-
-        if (sort) {
-            const sortOrder = sort.startsWith('-') ? -1 : 1;
-            const sortField = sort.replace('-', '');
-            result = result.sort({ [sortField]: sortOrder });
-        }
-
-        if (skip) result = result.skip(parseInt(skip));
-        if (limit) result = result.limit(parseInt(limit));
-
-        const todos = await result;
-
-        sendSuccess(res, { count: todos.length, todos });
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (sort) {
+        const sortOrder = sort.startsWith('-') ? -1 : 1;
+        const sortField = sort.replace('-', '');
+        result = result.sort({ [sortField]: sortOrder });
     }
-};
+
+    if (skip) result = result.skip(parseInt(skip));
+    if (limit) result = result.limit(parseInt(limit));
+
+    const todos = await result.lean();
+
+    res.json({
+        success: true,
+        count: todos.length,
+        data: todos
+    });
+});
 
 /**
  * @desc    Get todo by ID
  * @route   GET /api/todos/:id
  */
-exports.getTodoById = async (req, res) => {
-    try {
-        const todo = await Todo.findById(req.params.id).populate('user', 'name email');
+exports.getTodoById = catchAsync(async (req, res, next) => {
+    const todo = await Todo.findById(req.params.id)
+        .populate('user', 'name email')
+        .lean();
 
-        if (!todo) {
-            return sendError(res, 'Todo not found', 404);
-        }
-
-        sendSuccess(res, todo);
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (!todo) {
+        return next(new AppError('Todo not found', 404));
     }
-};
+
+    res.json({ success: true, data: todo });
+});
 
 /**
  * @desc    Update todo
  * @route   PUT /api/todos/:id
  */
-exports.updateTodo = async (req, res) => {
-    try {
-        const todo = await Todo.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, runValidators: true }
-        );
+exports.updateTodo = catchAsync(async (req, res, next) => {
+    const todo = await Todo.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+    );
 
-        if (!todo) {
-            return sendError(res, 'Todo not found', 404);
-        }
-
-        sendSuccess(res, todo, 'Todo updated successfully');
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (!todo) {
+        return next(new AppError('Todo not found', 404));
     }
-};
+
+    res.json({
+        success: true,
+        message: 'Todo updated successfully',
+        data: todo
+    });
+});
 
 /**
  * @desc    Toggle todo completed status
  * @route   PATCH /api/todos/:id/toggle
  */
-exports.toggleTodo = async (req, res) => {
-    try {
-        const todo = await Todo.findById(req.params.id);
+exports.toggleTodo = catchAsync(async (req, res, next) => {
+    const todo = await Todo.findById(req.params.id);
 
-        if (!todo) {
-            return sendError(res, 'Todo not found', 404);
-        }
-
-        todo.completed = !todo.completed;
-        await todo.save();
-
-        sendSuccess(res, todo, `Todo marked as ${todo.completed ? 'completed' : 'incomplete'}`);
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (!todo) {
+        return next(new AppError('Todo not found', 404));
     }
-};
+
+    todo.completed = !todo.completed;
+    await todo.save();
+
+    res.json({
+        success: true,
+        message: `Todo marked as ${todo.completed ? 'completed' : 'incomplete'}`,
+        data: todo
+    });
+});
 
 /**
  * @desc    Delete todo
  * @route   DELETE /api/todos/:id
  */
-exports.deleteTodo = async (req, res) => {
-    try {
-        const todo = await Todo.findByIdAndDelete(req.params.id);
+exports.deleteTodo = catchAsync(async (req, res, next) => {
+    const todo = await Todo.findByIdAndDelete(req.params.id);
 
-        if (!todo) {
-            return sendError(res, 'Todo not found', 404);
-        }
-
-        sendSuccess(res, todo, 'Todo deleted successfully');
-    } catch (error) {
-        sendError(res, error.message, 500);
+    if (!todo) {
+        return next(new AppError('Todo not found', 404));
     }
-};
+
+    res.json({
+        success: true,
+        message: 'Todo deleted successfully',
+        data: todo
+    });
+});
 
 /**
  * @desc    Get todos by user
  * @route   GET /api/users/:userId/todos
  */
-exports.getTodosByUser = async (req, res) => {
-    try {
-        const todos = await Todo.find({ user: req.params.userId });
+exports.getTodosByUser = catchAsync(async (req, res) => {
+    const todos = await Todo.find({ user: req.params.userId }).lean();
 
-        sendSuccess(res, { count: todos.length, todos });
-    } catch (error) {
-        sendError(res, error.message, 500);
-    }
-};
+    res.json({
+        success: true,
+        count: todos.length,
+        data: todos
+    });
+});
