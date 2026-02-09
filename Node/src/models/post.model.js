@@ -93,12 +93,11 @@ postSchema.virtual('commentsCount').get(function () {
     return this.comments ? this.comments.length : 0;
 });
 
-// ============ PRE-SAVE HOOK ============
-postSchema.pre('save', function (next) {
+// ============ PRE-SAVE HOOK (Mongoose 9 async pattern) ============
+postSchema.pre('save', async function () {
     if (this.isModified('status') && this.status === 'published' && !this.publishedAt) {
         this.publishedAt = new Date();
     }
-    next();
 });
 
 const Post = mongoose.model('Post', postSchema);

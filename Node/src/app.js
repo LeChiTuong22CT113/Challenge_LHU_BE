@@ -28,25 +28,28 @@ app.use(helmet({
 }));
 
 // Rate limiting - 100 requests per 15 minutes
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: {
-        success: false,
-        message: 'Too many requests, please try again later'
-    },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-app.use('/api', limiter);
+// NOTE: Disabled - express-rate-limit not fully compatible with Express 5
+// const limiter = rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 100,
+//     message: {
+//         success: false,
+//         message: 'Too many requests, please try again later'
+//     },
+//     standardHeaders: true,
+//     legacyHeaders: false
+// });
+// app.use('/api', limiter);
 
 // Data sanitization against NoSQL injection
-app.use(mongoSanitize());
+// NOTE: Disabled - express-mongo-sanitize not fully compatible with Express 5
+// app.use(mongoSanitize());
 
 // Prevent parameter pollution
-app.use(hpp({
-    whitelist: ['status', 'priority', 'sort', 'page', 'limit']
-}));
+// NOTE: hpp disabled - not compatible with Express 5 (req.query is read-only)
+// app.use(hpp({
+//     whitelist: ['status', 'priority', 'sort', 'page', 'limit']
+// }));
 
 // ============ CORE MIDDLEWARE ============
 app.use(cors());

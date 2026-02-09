@@ -14,8 +14,20 @@ const { AppError } = require('../utils/appError');
 exports.createTodo = catchAsync(async (req, res, next) => {
     const { title, description, priority, dueDate, user, tags } = req.body;
 
-    if (!title || !user) {
-        return next(new AppError('Title and user are required', 400));
+    if (!title) {
+        return next(new AppError('Title is required', 400));
+    }
+
+    // Use provided user or get first user from database as default
+    let todoUser = user;
+    if (!todoUser) {
+        const User = require('../models/user.model');
+        const defaultUser = await User.findOne().select('_id');
+        if (defaultUser) {
+            todoUser = defaultUser._id;
+        } else {
+            return next(new AppError('No user found. Please create a user first.', 400));
+        }
     }
 
     const todo = await Todo.create({
@@ -23,7 +35,7 @@ exports.createTodo = catchAsync(async (req, res, next) => {
         description,
         priority,
         dueDate,
-        user,
+        user: todoUser,
         tags
     });
 

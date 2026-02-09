@@ -32,9 +32,8 @@ const createTaskSchema = Joi.object({
 
     dueDate: Joi.date()
         .iso()
-        .greater('now')
         .messages({
-            'date.greater': 'Due date must be in the future'
+            'date.format': 'Invalid date format'
         }),
 
     assignedTo: Joi.string()

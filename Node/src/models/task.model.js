@@ -96,12 +96,11 @@ taskSchema.virtual('isOverdue').get(function () {
     return this.dueDate && this.dueDate < new Date() && this.status !== 'completed';
 });
 
-// Pre-save hook to set completedAt
-taskSchema.pre('save', function (next) {
+// Pre-save hook to set completedAt (Mongoose 9 async pattern)
+taskSchema.pre('save', async function () {
     if (this.status === 'completed' && !this.completedAt) {
         this.completedAt = new Date();
     }
-    next();
 });
 
 const Task = mongoose.model('Task', taskSchema);
